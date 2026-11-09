@@ -16,17 +16,6 @@ Proxy:
 - sohbete yazılan `/komut`ları yakalayıp kendi özelliklerini çalıştırır,
 - oyun içi pencereler (dialog) ve bir masaüstü penceresi (egui) sunar.
 
-## Depo içindeki yeri
-
-```
-GrowBots/                  <- eski, ayrı bir proje (headless bot + web panel). SADECE REFERANS.
-├── src/, web/             <- GrowBots kodu: fikir için okunur, kopyalanmaz, değiştirilmez
-├── proxy/                 <- iki eski C++ proxy (GTProxy-develop, GrowtopiaProxy-Code): SADECE REFERANS
-└── yeniproje/             <- BİZİM PROJE (gtproxy). Kendi Cargo workspace'i var, bağımsız.
-    └── forai/             <- bu belgeler
-```
-
-`yeniproje` klasörü taşınabilir: GrowBots'a derleme ya da çalışma zamanı bağımlılığı yoktur. Tek istisna, bir testin `../world.dat` dosyasını okumasıdır; dosya yoksa test kendini atlar.
 
 ## Kapsam
 
