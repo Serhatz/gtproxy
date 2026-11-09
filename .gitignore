@@ -1,0 +1,22 @@
+# Build output
+/target
+
+# The parent repo ignores lock files; this is a program, so its lock file is kept.
+!Cargo.lock
+
+# Made on first run on each machine. certs/ holds private keys.
+/certs
+config.toml
+settings.json
+vends.json
+report_id.txt
+gtproxy.log
+last_world.dat
+
+# Private: the gtproxy.xyz website and panel, and its upload zip
+/server/
+/gtproxy-site.zip
+
+# Reference material from another proxy, not ours to publish
+/strings.txt
+/KOMUTLAR.md
