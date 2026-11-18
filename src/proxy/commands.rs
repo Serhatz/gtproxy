@@ -11,7 +11,7 @@ use super::interceptor::Interceptor;
 use super::fast_item::{LOCKS, PlannedDrop};
 use super::roulette::SpinMode;
 use super::tools;
-use super::{chat_tools, collect, dropall, fake_drop, history, info, pathing, scan, vends, settings, social, stats, teleport, worlds, zoom};
+use super::{check, chat_tools, collect, dropall, recorder, render, surgery, surgstats, fake_drop, history, info, pathing, scan, vends, settings, social, stats, teleport, worlds, zoom};
 
 /// Largest stack the game allows in one inventory slot.
 const MAX_STACK: u32 = 200;
@@ -110,6 +110,12 @@ const COMMANDS: &[Command] = &[
     Command { name: "track", usage: "", help: "others' drops and pickups in chat", run: history::track },
     Command { name: "hidelevel", usage: "", help: "hide \"You need to be Level\" text", run: info::hidelevel },
     Command { name: "minimal", usage: "", help: "hide proxy chat messages", run: info::minimal },
+    Command { name: "record", usage: "[on|off]", help: "record dialogs and messages to record_log.txt", run: recorder::record },
+    Command { name: "autosurg", usage: "[off|assist|auto|next|briefs|food|delay ms]", help: "surgery help window: assisted or automatic", run: surgery::autosurg },
+    Command { name: "surgstats", usage: "[reset]", help: "surgery statistics window", run: surgstats::surgstats },
+    Command { name: "check", usage: "", help: "account: level, gems, untradeable items, active mods", run: check::check },
+    Command { name: "chest", usage: "", help: "what the storage boxes in this world hold", run: check::chest },
+    Command { name: "render", usage: "[25|50|100|open]", help: "save the world as a PNG picture", run: render::render_cmd },
     Command { name: "terminal", usage: "[on|off]", help: "next start: terminal (on) or window (off)", run: info::terminal },
     Command { name: "rndm", usage: "", help: "warp to a random world", run: info::rndm },
     Command { name: "re", usage: "", help: "run the last command again", run: info::re },
@@ -363,6 +369,8 @@ pub fn on_dialog(ic: &mut Interceptor, ret: DialogReturn) {
         || history::on_dialog(ic, &ret)
         || collect::on_dialog(ic, &ret)
         || dropall::on_dialog(ic, &ret)
+        || surgery::on_dialog(ic, &ret)
+        || surgstats::on_dialog(ic, &ret)
     {
         return;
     }

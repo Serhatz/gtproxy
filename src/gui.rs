@@ -614,6 +614,43 @@ impl ProxyApp {
                 if setting(ui, "Level yazısını gizle", "\"You need to be Level\" yazıları görünmez", s.hide_level) {
                     self.cmd("hidelevel");
                 }
+                divider(ui);
+                labeled_row(ui, "Ameliyat", "Yardımlı: aleti işaretler. Otomatik: kendisi yapar (ban riski)", |ui| {
+                    for (label, mode, on) in [
+                        ("Otomatik", "auto", s.surgery_auto),
+                        ("Yardımlı", "assist", s.surgery_tips && !s.surgery_auto),
+                        ("Kapalı", "off", !s.surgery_tips && !s.surgery_auto),
+                    ] {
+                        if chip(ui, label, on).clicked() {
+                            self.cmd(format!("autosurg {mode}"));
+                        }
+                    }
+                });
+                divider(ui);
+                if setting(ui, "Sıradaki Surg-E", "Otomatikte ameliyat bitince yakındaki Surg-E'ye geçer", s.surgery_next) {
+                    self.cmd("autosurg next");
+                }
+                divider(ui);
+                if setting(ui, "Legal Briefs", "Malpractice gelince Legal Briefs giyer", s.surgery_briefs) {
+                    self.cmd("autosurg briefs");
+                }
+                divider(ui);
+                if setting(ui, "Tea ve Gemonade", "Otomatikte etkisi bitince yer (envanterde varsa)", s.surgery_food) {
+                    self.cmd("autosurg food");
+                }
+                divider(ui);
+                let stats = match s.surg_stats {
+                    Some((ok, bad, sok, sbad)) => {
+                        let rate = if ok + bad == 0 { 0 } else { ok * 100 / (ok + bad) };
+                        format!("Toplam {ok} kurtarılan, {bad} kaybedilen (%{rate}); bu oturum {sok} / {sbad}")
+                    }
+                    None => "Henüz ameliyat yok".to_string(),
+                };
+                labeled_row(ui, "Ameliyat istatistikleri", &stats, |ui| {
+                    if gt_small(ui, "Aç", th().button).clicked() {
+                        self.cmd("surgstats");
+                    }
+                });
             });
         }
     }
@@ -657,6 +694,10 @@ impl ProxyApp {
                     ("Kapılar", "locked"),
                     ("Vend fiyatlarını kopyala", "vendcopy"),
                     ("Drop geçmişi", "drophistory"),
+                    ("Sandıklar", "chest"),
+                    ("Dünya resmi", "render"),
+                    ("Resim klasörü", "render open"),
+                    ("Hesap", "check"),
                 ] {
                     if gt_small(ui, label, th().button).clicked() {
                         self.cmd(c);

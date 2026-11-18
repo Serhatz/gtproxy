@@ -93,6 +93,14 @@ Oyun sadece `action|input
 - İstemci → sunucu `ItemActivateObjectRequest` (tip 11): `value` = obje uid'si, `vec_x/vec_y` = objenin konumu. GrowBots ve diğer proxy de yürümeden, birkaç kare uzaktan bunu gönderiyor (diğer proxy'nin üst sınırı 10 kare, GrowBots 1–5). Sunucunun gerçek sınırı **doğrulanmadı**; varsayılan 3.
 - Biri aldığında sunucu `ItemChangeObject` gönderir: `net_id` = alan oyuncu, `value` = uid. Yeni drop'ta `net_id = -1` ve **atanın kim olduğu yazmaz**.
 
+### Ameliyat (Surg-E) penceresi (gerçek logla doğrulandı)
+- `end_dialog|surgery|||`. Başlık `add_label_with_icon|big|`wSurg-E``|left|18|`, sonra `add_popup_name|Surgery|`.
+- Durum satırları (`add_smalltext`): teşhis (`The patient has not been diagnosed.` ya da `Patient suffers from kidney failure.`), `Pulse: `3Steady``    Status: `4Awake```, `Temp: `3101.6``    Operation site: `3Not sanitized```, görüş (`It is becoming hard to see your work.` / `You can't see what you are doing!`), `Incisions: `30```, kanama (`losing blood `3slowly.`` / `` `6losing blood!`` / `` `4very quickly!``), ateş (`slowly rising.` / `climbing.` / `climbing rapidly!`), boşluk, son hamlenin sonucu (`[Skill Fail (7%)]` dahil).
+- Aletler: `add_button_with_icon|tool<ID>|`$İsim``|noflags|<ID>|<kalan adet>|`; olmayan yer `nulltool`, liste `||END_LIST|` ile biter. Görüş tamamen kapalıyken sadece Sponge açıktır. Antibiotics butonu Lab Kit'ten sonra çıkar. Cevap: `dialog_name|surgery` + `buttonClicked|tool<ID>`.
+- Kurallar (Growtopia Wiki, Surgery): başarı = sorun giderilmiş, kemik yok, kesi yok, kanama yok, ateş ≤ 100.4, kalp atıyor. Başarısızlık = ateş > 110, uyanık hastaya Scalpel, nabız tükenmesi, kalp durunca 2 hamlede Defibrillator yok, 15 hamleden uzun bayılma. Stitches kesisiz de kanamayı azaltır, tek kesiyi kapatınca bütün kanama durur; Clamp ve Pins kesi ister.
+- Proxy kuralları (5 log sonrası): Antiseptic ve Clamp hiç önerilmez; kanayan hastaya önce Stitches; Sponge sadece "hard to see"/"can't see" durumunda ve arka arkaya en fazla 2 kez; sıra: kör → Sponge, kalp → Defibrillator, ateş ≥ 107 → Antibiotics/Lab Kit, hızlı kanama + zayıf nabız → Stitches, Extremely Weak → Transfusion, "hard to see" → Sponge (6. log: hard to see + başka alet + kanama → sonraki pencere %54–60 kör, Sponge ile %4–5), sonra geri kalanı. Off yazılınca süren otomatik ameliyat bitirilir, sonra kapanır. "succumbed", "REVOKED", "abandoned your patient" başarısızlık sayılır.
+- Diğer proxy ilk penceredeki durum satırlarından hastalığı tanıyor; 14 kalıp `surgery.rs::LIKELY`'de, iki gerçek ameliyatta tuttu.
+
 ## Dünya haritası (`SendMapData`)
 
 `u16 sürüm, u32 bayrak, u16 isim_uzunluğu, isim, u32 genişlik, u32 yükseklik, u32 kare_sayısı, 5 bayt`. Sonra her kare için: `u16 fg, u16 bg, u16 parent, u16 bayrak, [HAS_PARENT ise u16], [HAS_EXTRA ise u8 tür + ekstra], [CBOR listesindeki eşyalarda u32+CBOR]`. Karelerden sonra 12 bayt, `u32 obje_sayısı, u32 son_uid`.

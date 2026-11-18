@@ -52,6 +52,8 @@ pub enum Special {
     Vend { item: u32, price: i32 },
     /// Door, portal, entrance: the label shown on it. The destination is not sent.
     Door { label: String },
+    /// Storage box: (item, count) inside.
+    Storage(Vec<(u32, u32)>),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -379,8 +381,18 @@ fn parse_extra(r: &mut Reader, kind: u8, fg: u16) -> Result<Special> {
         49 => r.skip(9)?, // weather machine 2
         53 => r.skip(8)?, // chemsynth tank
         54 => {
-            let len = r.u16()? as usize; // storage block
-            r.skip(len / 13 * 13)?;
+            let len = r.u16()? as usize; // storage block: 13 bytes per item
+            let mut items = Vec::with_capacity(len / 13);
+            for _ in 0..len / 13 {
+                r.skip(3)?;
+                let item = r.u32()?;
+                r.skip(2)?;
+                let count = r.u32()?;
+                if item != 0 && count != 0 {
+                    items.push((item, count));
+                }
+            }
+            return Ok(Special::Storage(items));
         }
         55 => {
             r.skip(4)?; // cooking oven
@@ -497,6 +509,21 @@ impl Reader<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn storage_box_items() {
+        let mut d = (26u16).to_le_bytes().to_vec();
+        for (item, count) in [(242u32, 5u32), (1796, 1)] {
+            d.extend_from_slice(&[0, 0, 0]);
+            d.extend_from_slice(&item.to_le_bytes());
+            d.extend_from_slice(&[0, 0]);
+            d.extend_from_slice(&count.to_le_bytes());
+        }
+        d.push(0xAB); // the next tile starts here
+        let mut r = Reader { d: &d, pos: 0 };
+        assert_eq!(parse_extra(&mut r, 54, 6286).unwrap(), Special::Storage(vec![(242, 5), (1796, 1)]));
+        assert_eq!(d[r.pos], 0xAB);
+    }
 
     /// A 3x2 map: air, dirt, locked world lock / a door, a VIP entrance, air.
     pub fn sample() -> Vec<u8> {

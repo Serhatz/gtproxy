@@ -275,12 +275,17 @@ pub fn walk_start(ic: &mut Interceptor) -> Option<((i32, i32), i32)> {
 /// Sends one `State` per tile of `path` (starting next to `start`), then
 /// moves the client to the end. Returns when the last step is sent.
 pub fn walk(ic: &mut Interceptor, start: (i32, i32), path: &[(i32, i32)], net_id: i32) -> Duration {
+    walk_facing(ic, start, path, net_id, None)
+}
+
+/// [`walk`]; `facing_left`: keep facing that way instead of where each step goes.
+pub fn walk_facing(ic: &mut Interceptor, start: (i32, i32), path: &[(i32, i32)], net_id: i32, facing_left: Option<bool>) -> Duration {
     let Some(&end_tile) = path.last() else { return Duration::ZERO };
     let step = ic.teleport.step;
     let mut prev = start;
     for (i, &(x, y)) in path.iter().enumerate() {
         let mut flags = PacketFlags::WALK | PacketFlags::STANDING;
-        flags.set(PacketFlags::FACING_LEFT, x < prev.0);
+        flags.set(PacketFlags::FACING_LEFT, facing_left.unwrap_or(x < prev.0));
         let pkt = GameUpdatePacket {
             packet_type: GamePacketType::State,
             vec_x: (x * 32) as f32,

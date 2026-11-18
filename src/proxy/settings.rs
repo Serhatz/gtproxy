@@ -52,6 +52,11 @@ pub struct Settings {
     pub wheel_zoom: bool,
     pub minimal: bool,
     pub hide_level: bool,
+    pub surgery_tips: bool,
+    pub surgery_delay_ms: u64,
+    pub surgery_next: bool,
+    pub surgery_briefs: bool,
+    pub surgery_food: bool,
     pub auto_collect: bool,
     pub collect_range: u32,
     pub collect_only: Option<u32>,
@@ -99,6 +104,11 @@ pub fn snapshot(ic: &Interceptor) -> Settings {
         wheel_zoom: super::zoom::enabled(),
         minimal: f.minimal,
         hide_level: f.hide_level,
+        surgery_tips: f.surgery_tips,
+        surgery_delay_ms: f.surgery_delay_ms,
+        surgery_next: f.surgery_next,
+        surgery_briefs: f.surgery_briefs,
+        surgery_food: f.surgery_food,
         auto_collect: ic.collect.auto,
         collect_range: ic.collect.range,
         collect_only: ic.collect.only,
@@ -136,6 +146,14 @@ pub fn apply(ic: &mut Interceptor, s: Settings) {
     f.ping_alert_ms = s.ping_alert_ms;
     f.minimal = s.minimal;
     f.hide_level = s.hide_level;
+    f.surgery_tips = s.surgery_tips;
+    f.surgery_delay_ms = match s.surgery_delay_ms {
+        0 => super::surgery::DEFAULT_DELAY_MS,
+        ms => ms.clamp(super::surgery::MIN_DELAY_MS, super::surgery::MAX_DELAY_MS),
+    };
+    f.surgery_next = s.surgery_next;
+    f.surgery_briefs = s.surgery_briefs;
+    f.surgery_food = s.surgery_food;
     let c = &mut ic.collect;
     c.auto = s.auto_collect;
     c.range = s.collect_range.clamp(1, super::collect::MAX_RANGE);

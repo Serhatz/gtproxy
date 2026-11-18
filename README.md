@@ -148,8 +148,14 @@ Komutları sohbete yazarsın. Proxy'nin tanımadığı komutlar (`/msg`, `/sb` g
 | `/hidelevel` | "You need to be Level ..." yazılarını gizler |
 | `/minimal` | Proxy'nin sohbet mesajlarını gizler (uyarılar ekranın ortasında görünmeye devam eder) |
 | `/rndm` | Rastgele bir dünyaya warp |
+| `/record [on\|off]` | Bütün pencereleri (tam haliyle), konsol/baloncuk mesajlarını ve senin cevaplarını `record_log.txt`'e kaydeder. Legendary Wizard penceresi açılınca kayıt kendiliğinden `wizard_log.txt`'e başlar, dünyadan çıkınca durur |
+| `/autosurg` | Ameliyat penceresi: **Kapalı**, **Yardımlı** (basılacak aleti sarı çerçeveyle işaretler) ya da **Otomatik** (pencereyi göstermeden aletleri kendisi seçer, aletler arası bekleme 10–10.000 ms). Otomatikte ameliyat bitince (başarılı ya da başarısız) 5 kare içindeki kullanılmamış Surg-E'ye wrench atıp ameliyatı başlatır, yakında Surg-E kalmayınca durur. Malpractice gelince **Legal Briefs** giyer, ceza kalkınca çıkarır (zaten giyiliyse önce çıkarıp sonra giyer); briefs yoksa durur. Bir alet 20'nin altındaysa ekranda uyarır. Envanterde varsa **Tea** (Calm nerves, 2 dk) ve **Gemonade** (Food: Sparkling Gems) etkisi bitince yenir; başka bir "Food:" etkisi (ör. Skill Spice) varken Gemonade yenmez. İlk ameliyatı sen başlatırsın. Otomatik mod oyunun kurallarına göre **bot sayılır, ban riski vardır**; her açılışta kapalı başlar. Kısayollar: `/autosurg off\|assist\|auto\|next\|briefs\|food`, `/autosurg delay <ms>`. Kayıt: `surgery_log.txt` |
+| `/surgstats [reset]` | Ameliyat istatistikleri: kurtarılan/kaybedilen (toplam ve bu oturum), Skill Fail oranı, ameliyat başına hamle, ölüm sebepleri, hastalık başına başarı, kazanılan ödüller, Malpractice ve Legal Briefs sayısı. `surgery_stats.json`'a kaydedilir |
 | `/dd <adet>` | Diamond Lock bırakır. DL yetmezse Blue Gem Lock'u DL'ye çevirip atar (`/dd 30`, DL yok, BGL var → 1 BGL bozulur, 30 DL atılır). 100'ün katları ve yüzlükler doğrudan BGL olarak gider (`/dd 200` → 2 BGL, `/dd 250` → 2 BGL + 50 DL) |
-| `/dropall [stop]`, `/dropall1` | Envanterdeki her şeyi ya da her eşyadan birer tane bırakır. Önce listeyle onay penceresi açılır; 0,4 sn arayla tek tek bırakılır, `/dropall stop` durdurur. Fist ve Wrench kalır |
+| `/dropall [stop]`, `/dropall1` | Envanterdeki her şeyi ya da her eşyadan birer tane bırakır. Önce listeyle onay penceresi açılır; 0,4 sn arayla tek tek bırakılır, `/dropall stop` durdurur. Untradeable eşyalar (Fist, Wrench, My First World Lock...) kalır. Önündeki kare dolunca ("find an emptier spot") bakış yönü değişmeden bir kare geri adım atar ve kalanları oraya bırakır; arkada yer yoksa durur |
+| `/check` | Hesap: isim, level, gem, dünya, envanter, aktif modlar (kalan süreyle) ve untradeable eşyalar |
+| `/chest` | Bu dünyadaki Storage Box'ların içindekiler (dünya verisinde gelir) |
+| `/render [25\|50\|100]`, `/render open` | Dünyanın PNG resmini oyunun kendi dokularıyla `renders/` klasörüne kaydeder (birbirine bağlanan bloklar ilk hücreleriyle çizilir, birebir değildir); `open` klasörü açar |
 | `/logoff`, `/logout` | Giriş ekranına döner |
 | `/re` | Son proxy komutunu tekrar çalıştırır |
 | `/terminal [on\|off]` | Bir sonraki açılış terminal modunda mı (on) pencerede mi (off) olsun; ayarı `config.toml`'a yazar |
@@ -226,6 +232,9 @@ src/
     ├── pathing.rs       /pvend, /pfind, /tpto, /door
     ├── collect.rs       /collect penceresi ve oto toplama
     ├── dropall.rs       /dropall, /dropall1, /logoff
+    ├── surgstats.rs     /surgstats
+    ├── check.rs         /check, /chest
+    ├── render.rs        /render (RTTEX okuma, PNG yazma)
     ├── dialog.rs        oyun içi pencere (OnDialogRequest) oluşturucu
     ├── effect.rs        proxy'nin ürettiği paketler ve gecikmeli işler
     ├── session.rs       oyuncu ve dünya takibi

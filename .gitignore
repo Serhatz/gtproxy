@@ -12,6 +12,9 @@ vends.json
 report_id.txt
 gtproxy.log
 last_world.dat
+surgery_log*.txt
+wizard_log.txt
+record_log.txt
 
 # Private: the gtproxy.xyz website and panel, and its upload zip
 /server/
@@ -20,3 +23,8 @@ last_world.dat
 # Reference material from another proxy, not ours to publish
 /strings.txt
 /KOMUTLAR.md
+
+# Release zips
+/dist/
+surgery_stats.json
+/renders/

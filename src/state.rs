@@ -102,6 +102,13 @@ pub struct Snapshot {
     pub collect_only: Option<String>,
     pub minimal: bool,
     pub hide_level: bool,
+    pub surgery_tips: bool,
+    pub surgery_auto: bool,
+    pub surgery_next: bool,
+    pub surgery_briefs: bool,
+    pub surgery_food: bool,
+    /// Surgeries: (saved, failed) in total and this session.
+    pub surg_stats: Option<(u32, u32, u32, u32)>,
     pub track_drops: bool,
     /// Vends known from all visited worlds.
     pub vends_known: usize,

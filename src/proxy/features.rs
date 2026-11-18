@@ -123,6 +123,17 @@ pub struct Features {
     pub minimal: bool,
     /// `/hidelevel`: drop the game's "You need to be Level ..." bubbles.
     pub hide_level: bool,
+    /// `/autosurg`: mark the best tool in surgery windows.
+    pub surgery_tips: bool,
+    /// `/autosurg auto`: answer surgery windows by itself (never saved).
+    pub surgery_auto: bool,
+    pub surgery_delay_ms: u64,
+    /// Automatic: wrench the next Surg-E when a surgery ends.
+    pub surgery_next: bool,
+    /// Automatic: wear Legal Briefs on Malpractice.
+    pub surgery_briefs: bool,
+    /// Automatic: eat Tea and Gemonade when their mods are off.
+    pub surgery_food: bool,
     /// Last proxy command line, for `/re`.
     pub last_command: Option<String>,
 }

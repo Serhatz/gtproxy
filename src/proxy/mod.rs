@@ -33,6 +33,11 @@ mod info;
 mod pathing;
 mod collect;
 mod dropall;
+mod surgery;
+mod recorder;
+mod render;
+mod surgstats;
+mod check;
 #[cfg(test)]
 mod feature_tests;
 mod interceptor;
@@ -105,6 +110,7 @@ pub fn run(cfg: Arc<Config>, shared: Arc<Shared>) -> Result<()> {
     ic.store = settings::Store::new(cfg.system.settings_path.clone().into());
     settings::load(&mut ic);
     ic.vends = vends::VendDb::load("vends.json".into());
+    surgstats::stats(&mut ic);
 
     let mut bridge = Bridge {
         shared,
@@ -213,6 +219,12 @@ impl Bridge {
             collect_only: ic.collect.only.map(|id| ic.items.name(id)),
             minimal: f.minimal,
             hide_level: f.hide_level,
+            surgery_tips: f.surgery_tips,
+            surgery_auto: f.surgery_auto,
+            surgery_next: f.surgery_next,
+            surgery_briefs: f.surgery_briefs,
+            surgery_food: f.surgery_food,
+            surg_stats: ic.surg_stats.as_ref().map(|s| (s.saved, s.failed, s.session[0], s.session[1])),
             track_drops: ic.history.track,
             vends_known: ic.vends.worlds.values().map(Vec::len).sum(),
             spin_history: ic.history.spins.iter().take(12).map(|e| (e.player.clone(), e.number, e.colour)).collect(),

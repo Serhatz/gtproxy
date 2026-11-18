@@ -17,7 +17,24 @@ pub struct ItemNames {
     /// Collision type: 0 none, 1 solid, 2 platform, 3/10/11 lockable gate,
     /// 4/9 switchable, 5 one-way sideways, 6 VIP entrance, 7 no going up.
     collision: HashMap<u32, u8>,
+    /// The record's `u16` property flags (0x8000 untradeable).
+    flags: HashMap<u32, u16>,
+    /// Where the item's picture is, for `/render`.
+    textures: HashMap<u32, Texture>,
 }
+
+/// An item's sprite: a 32x32 cell of a `.rttex` sheet.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Texture {
+    pub file: std::sync::Arc<str>,
+    pub x: u8,
+    pub y: u8,
+    /// Render ("spread") type: 1 single, 2 smart edge, 4 smart cling, 5 random, ...
+    pub spread: u8,
+}
+
+/// Item flag: cannot be traded or dropped (Fist, Wrench, quest items...).
+pub const UNTRADEABLE: u16 = 0x8000;
 
 impl ItemNames {
     /// Loads from the game's cache; empty (IDs shown instead of names) on failure.
@@ -42,10 +59,19 @@ impl ItemNames {
         };
         let mut names = HashMap::with_capacity(count as usize);
         let mut collision = HashMap::with_capacity(count as usize);
+        let mut flags = HashMap::with_capacity(count as usize);
+        let mut textures = HashMap::with_capacity(count as usize);
+        let mut files: HashMap<String, std::sync::Arc<str>> = HashMap::new();
         let mut pos = 6;
         for id in 0..count {
-            let Some((name, next)) = find_record(data, pos, id) else { continue };
+            let Some((name, next, f, tex)) = find_record(data, pos, id) else { continue };
             names.insert(id, name);
+            flags.insert(id, f);
+            // After the texture name: u32 hash, u8 effect, u32 cooking, u8 x, u8 y, u8 spread.
+            if let (Some(&x), Some(&y), Some(&spread)) = (data.get(next + 9), data.get(next + 10), data.get(next + 11)) {
+                let file = files.entry(tex.clone()).or_insert_with(|| tex.as_str().into()).clone();
+                textures.insert(id, Texture { file, x, y, spread });
+            }
             // After the texture name: u32 hash, u8 effect, u32 cooking, u8 x, u8 y,
             // u8 render type, u8 stripey, then u8 collision type.
             if let Some(&c) = data.get(next + 13) {
@@ -53,7 +79,11 @@ impl ItemNames {
             }
             pos = next;
         }
-        Self { names, collision }
+        Self { names, collision, flags, textures }
+    }
+
+    pub fn texture(&self, id: u32) -> Option<&Texture> {
+        self.textures.get(&id)
     }
 
     pub fn name(&self, id: u32) -> String {
@@ -62,7 +92,17 @@ impl ItemNames {
 
     #[cfg(test)]
     pub fn with_collision(pairs: &[(u32, u8)]) -> Self {
-        Self { names: HashMap::new(), collision: pairs.iter().copied().collect() }
+        Self { collision: pairs.iter().copied().collect(), ..Self::default() }
+    }
+
+    #[cfg(test)]
+    pub fn with_flags(pairs: &[(u32, u16)]) -> Self {
+        Self { flags: pairs.iter().copied().collect(), ..Self::default() }
+    }
+
+    /// Untradeable items cannot be dropped either; unknown items count as tradeable.
+    pub fn untradeable(&self, id: u32) -> bool {
+        self.flags.get(&id).is_some_and(|f| f & UNTRADEABLE != 0)
     }
 
     pub fn collision(&self, id: u32) -> Option<u8> {
@@ -90,9 +130,9 @@ fn cache_path() -> Option<PathBuf> {
     Some(PathBuf::from(base).join(r"Growtopia\cache\items.dat"))
 }
 
-/// Finds the record of `id` at or after `from`; returns its name and the
-/// position just past the texture name.
-fn find_record(data: &[u8], from: usize, id: u32) -> Option<(String, usize)> {
+/// Finds the record of `id` at or after `from`; returns its name, the
+/// position just past the texture name and its flags.
+fn find_record(data: &[u8], from: usize, id: u32) -> Option<(String, usize, u16, String)> {
     let needle = id.to_le_bytes();
     // Records are a few hundred bytes; give up well before the next IDs.
     let window_end = data.len().min(from + 64 * 1024);
@@ -107,7 +147,8 @@ fn find_record(data: &[u8], from: usize, id: u32) -> Option<(String, usize)> {
     None
 }
 
-fn record_at(data: &[u8], off: usize, id: u32) -> Option<(String, usize)> {
+fn record_at(data: &[u8], off: usize, id: u32) -> Option<(String, usize, u16, String)> {
+    let flags = u16::from_le_bytes(data.get(off + 4..off + 6)?.try_into().ok()?);
     let mut p = off + 4 + 2 + 1 + 1;
     let name_len = u16::from_le_bytes(data.get(p..p + 2)?.try_into().ok()?) as usize;
     if name_len == 0 || name_len > 128 {
@@ -127,7 +168,7 @@ fn record_at(data: &[u8], off: usize, id: u32) -> Option<(String, usize)> {
     let tex_len = u16::from_le_bytes(data.get(p..p + 2)?.try_into().ok()?) as usize;
     p += 2;
     let tex = data.get(p..p + tex_len)?;
-    tex.ends_with(b".rttex").then_some((name, p + tex_len))
+    tex.ends_with(b".rttex").then(|| (name, p + tex_len, flags, String::from_utf8_lossy(tex).into_owned()))
 }
 
 #[cfg(test)]
@@ -168,5 +209,10 @@ mod tests {
         assert_eq!(items.name(758), "Roulette Wheel");
         // Blank, Dirt, Wooden Platform
         assert_eq!((items.collision(0), items.collision(2), items.collision(102)), (Some(0), Some(1), Some(2)));
+        // Fist and Wrench cannot be dropped, Dirt can.
+        assert!(items.untradeable(18) && items.untradeable(32) && !items.untradeable(2));
+        // Dirt is on the first tile sheet.
+        let dirt = items.texture(2).unwrap();
+        assert_eq!(&*dirt.file, "tiles_page1.rttex");
     }
 }

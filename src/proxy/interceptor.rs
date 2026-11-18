@@ -65,6 +65,10 @@ pub struct Interceptor {
     pub warp: super::warp::Warp,
     pub history: super::history::History,
     pub drop_all: super::dropall::DropAll,
+    pub surgery: super::surgery::Surgery,
+    /// `/surgstats`, loaded on first use.
+    pub surg_stats: Option<super::surgstats::SurgStats>,
+    pub recorder: super::recorder::Recorder,
     pub collect: super::collect::Collect,
     pub roulette_stats: SpinStats,
     /// Tiles of the current world, `None` outside a world or if the map could not be read.
@@ -90,12 +94,21 @@ impl Interceptor {
             planned_drops: Vec::new(),
             inventory: Inventory::default(),
             items: Arc::new(ItemNames::default()),
-            features: Features::default(),
+            features: Features {
+                surgery_delay_ms: super::surgery::DEFAULT_DELAY_MS,
+                surgery_next: true,
+                surgery_briefs: true,
+                surgery_food: true,
+                ..Features::default()
+            },
             store: settings::Store::default(),
             vends: Default::default(),
             warp: Default::default(),
             history: Default::default(),
             drop_all: Default::default(),
+            surgery: Default::default(),
+            surg_stats: None,
+            recorder: Default::default(),
             collect: Default::default(),
             roulette_stats: SpinStats::default(),
             world: None,
@@ -123,6 +136,8 @@ impl Interceptor {
         teleport::tick(self);
         super::collect::tick(self, now);
         super::dropall::tick(self, now);
+        super::surgery::tick(self, now);
+        super::render::tick(self);
         settings::autosave_tick(self, now);
         for plan in fast_item::take_expired(&mut self.planned_drops) {
             tracing::info!("drop {}: no dialog from the server, item not owned", plan.name);
@@ -173,6 +188,7 @@ impl Interceptor {
     }
 
     fn on_client_text(&mut self, text: &str) -> Verdict {
+        super::recorder::client_text(self, text);
         let tp = TextPacket::parse(text);
         match tp.get("action") {
             Some("input") => {
@@ -191,6 +207,12 @@ impl Interceptor {
             }
             // Answers to our own dialogs mean nothing to the server.
             Some("dialog_return") => {
+                if tp.get("dialog_name") == Some("surgery") {
+                    super::surgery::on_client_choice(self, tp.get("buttonClicked").unwrap_or_default());
+                }
+                if tp.get("dialog_name") == Some("surge") {
+                    super::surgery::on_client_surge(self, tp.get("tilex"), tp.get("tiley"));
+                }
                 if let Some(ret) = DialogReturn::parse(&tp) {
                     commands::on_dialog(self, ret);
                     return Verdict::Drop;
@@ -218,6 +240,7 @@ impl Interceptor {
                     return Verdict::Drop;
                 }
                 self.session.pos = Some((pkt.vec_x, pkt.vec_y));
+                self.session.facing_left = pkt.flags.contains(PacketFlags::FACING_LEFT);
                 if pkt.flags.intersects(PacketFlags::PUNCH | PacketFlags::PLACE) {
                     return teleport::on_click(self, pkt.int_x, pkt.int_y, pkt.flags.contains(PacketFlags::PLACE));
                 }
@@ -307,6 +330,25 @@ impl Interceptor {
     }
 
     fn on_call(&mut self, pkt: GameUpdatePacket, vl: VariantList) -> Verdict {
+        // Full copies for `/record` and the Legendary Wizard recording.
+        let text_at = match vl.function() {
+            Some("OnDialogRequest" | "OnConsoleMessage" | "OnTextOverlay") => Some(1),
+            Some("OnTalkBubble") => Some(2),
+            _ => None,
+        };
+        if let (Some(i), Some(f)) = (text_at, vl.function()) {
+            let text = vl.get(i).and_then(Variant::as_str).unwrap_or_default().to_string();
+            let f = f.to_string();
+            super::recorder::server_call(self, &f, &text);
+            if f != "OnDialogRequest" {
+                self.session.note_mod(&text);
+                super::surgery::on_message(self, &text);
+                super::surgstats::on_message(self, &text);
+            }
+            if f == "OnTextOverlay" {
+                super::dropall::on_overlay(self, &text);
+            }
+        }
         match vl.function() {
             Some("OnSendToServer") => match self.rewrite_send_to_server(pkt, vl) {
                 Some(bytes) => Verdict::Replace(bytes),
@@ -342,6 +384,7 @@ impl Interceptor {
             }
             // [4] is the skin colour.
             Some("OnSetClothing") if Some(pkt.net_id) == self.session.net_id => {
+                super::surgery::on_clothing(self, &vl);
                 if let Some(Variant::Unsigned(code)) = vl.get(4) {
                     self.session.skin = Some(*code);
                 }
@@ -349,6 +392,7 @@ impl Interceptor {
             }
             Some("OnSetClothing") => social::strip_clothing(self, pkt, vl),
             Some("OnRequestWorldSelectMenu") => {
+                super::recorder::left_world(self);
                 self.session.leave_world();
                 self.world = None;
                 super::warp::on_world_menu(self);
@@ -475,8 +519,20 @@ impl Interceptor {
             Verdict::Forward => {}
             other => return other,
         }
+        // `/autosurg`: the next Surg-E's popup, answered like Okay.
+        if super::surgery::on_surge_popup(self, &markup) {
+            return Verdict::Drop;
+        }
+        // `/autosurg`: the marked tool, or answered automatically and hidden.
+        let tutored = match super::surgery::on_server_dialog(self, &markup) {
+            Some(super::surgery::Window::Hide) => return Verdict::Drop,
+            Some(super::surgery::Window::Show(m)) => Some(m),
+            None => None,
+        };
+        let changed = tutored.is_some();
+        let markup = tutored.unwrap_or(markup);
         // `/ui`: restyle every dialog the server opens.
-        if self.features.ui_color.is_some() {
+        if self.features.ui_color.is_some() || changed {
             vl.0[1] = Variant::String(self.style_dialog(markup));
             let mut pkt = pkt;
             pkt.extra = vl.serialize();
